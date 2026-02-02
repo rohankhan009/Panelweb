@@ -116,6 +116,11 @@ class FirebaseCreate(BaseModel):
     name: str
     project_id: str
     api_key: str
+    database_url: Optional[str] = None
+    auth_domain: Optional[str] = None
+    storage_bucket: Optional[str] = None
+    messaging_sender_id: Optional[str] = None
+    app_id: Optional[str] = None
 
 class Session(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
