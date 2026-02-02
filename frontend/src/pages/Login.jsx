@@ -68,10 +68,10 @@ const Login = ({ onLogin }) => {
       <MatrixBackground />
       
       <div className="relative z-10 w-full max-w-md">
-        <div className="bg-[#12121a]/90 backdrop-blur-xl border border-[#2a2a3a] rounded-2xl p-8 shadow-2xl">
-          <div className="flex justify-center mb-6">
-            <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-pink-500 to-purple-600 flex items-center justify-center shadow-lg shadow-pink-500/30">
-              <Shield className="w-10 h-10 text-white" />
+        <div className="bg-[#12121a]/90 backdrop-blur-xl border border-[#2a2a3a] rounded-2xl p-5 sm:p-8 shadow-2xl">
+          <div className="flex justify-center mb-4 sm:mb-6">
+            <div className="w-16 sm:w-20 h-16 sm:h-20 rounded-2xl bg-gradient-to-br from-pink-500 to-purple-600 flex items-center justify-center shadow-lg shadow-pink-500/30">
+              <Shield className="w-8 sm:w-10 h-8 sm:h-10 text-white" />
             </div>
           </div>
 
