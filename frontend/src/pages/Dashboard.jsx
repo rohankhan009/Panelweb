@@ -21,10 +21,10 @@ const Dashboard = ({ user, onLogout }) => {
   };
 
   const tabs = [
-    { id: 'device', label: 'Device', icon: Smartphone, color: 'from-blue-500 to-cyan-400' },
-    { id: 'sms', label: 'SMS Hub', icon: MessageSquare, color: 'from-green-500 to-emerald-400' },
-    { id: 'magic', label: 'Magic Sort', icon: Sparkles, color: 'from-yellow-500 to-orange-400' },
-    { id: 'settings', label: 'Settings', icon: Settings, color: 'from-purple-500 to-pink-400' }
+    { id: 'device', label: 'Device', icon: Smartphone },
+    { id: 'sms', label: 'SMS Hub', icon: MessageSquare },
+    { id: 'magic', label: 'Magic Sort', icon: Sparkles },
+    { id: 'settings', label: 'Settings', icon: Settings }
   ];
 
   const renderContent = () => {
@@ -42,22 +42,23 @@ const Dashboard = ({ user, onLogout }) => {
     }
   };
 
-  const getPageTitle = () => {
+  const getPageInfo = () => {
     switch (activeTab) {
       case 'device':
-        return { title: 'Device Panel', subtitle: 'Monitor and manage your connected devices' };
+        return { title: 'Device Panel', subtitle: 'Monitor and manage your connected devices', color: 'from-blue-500 to-cyan-400' };
       case 'sms':
-        return { title: 'SMS Hub', subtitle: 'View and manage incoming messages' };
+        return { title: 'SMS Hub', subtitle: 'View and manage incoming messages', color: 'from-green-500 to-emerald-400' };
       case 'magic':
-        return { title: 'Magic Sort', subtitle: 'Smart filtering and organization' };
+        return { title: 'Magic Sort', subtitle: 'Intelligent financial message analysis', color: 'from-yellow-500 to-orange-400' };
       case 'settings':
-        return { title: 'Settings', subtitle: 'Configure your preferences' };
+        return { title: 'Settings', subtitle: 'Configure your preferences', color: 'from-purple-500 to-pink-400' };
       default:
-        return { title: 'Dashboard', subtitle: '' };
+        return { title: 'Dashboard', subtitle: '', color: 'from-gray-500 to-gray-400' };
     }
   };
 
-  const pageInfo = getPageTitle();
+  const pageInfo = getPageInfo();
+  const currentTab = tabs.find(t => t.id === activeTab);
 
   return (
     <div className="min-h-screen bg-[#0a0a0f]">
@@ -74,54 +75,91 @@ const Dashboard = ({ user, onLogout }) => {
                 <p className="text-yellow-600/80 text-xs">Enable 2FA to secure your account.</p>
               </div>
             </div>
-            <button className="px-3 py-1.5 bg-yellow-500/20 border border-yellow-500/30 rounded-full text-yellow-500 text-xs font-medium hover:bg-yellow-500/30 transition-colors flex items-center gap-1.5">
-              <Shield className="w-3.5 h-3.5" />
-              Enable 2FA Now
-            </button>
+            <div className="flex items-center gap-2">
+              <button className="px-3 py-1.5 bg-yellow-500/20 border border-yellow-500/30 rounded-full text-yellow-500 text-xs font-medium hover:bg-yellow-500/30 transition-colors flex items-center gap-1.5">
+                <Shield className="w-3.5 h-3.5" />
+                Enable 2FA Now
+              </button>
+              <button 
+                onClick={() => setShow2FAWarning(false)}
+                className="text-yellow-600 hover:text-yellow-500 text-xl leading-none"
+              >
+                ×
+              </button>
+            </div>
           </div>
         </div>
       )}
 
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-4 py-8">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-8">
-          <div className="flex items-center gap-4">
-            <div className={`w-14 h-14 rounded-xl bg-gradient-to-br ${tabs.find(t => t.id === activeTab)?.color} flex items-center justify-center shadow-lg`}>
-              {React.createElement(tabs.find(t => t.id === activeTab)?.icon || Smartphone, { className: 'w-7 h-7 text-white' })}
+        {/* Header - Only show for non-SMS tabs */}
+        {activeTab !== 'sms' && (
+          <div className="flex items-center justify-between mb-8">
+            <div className="flex items-center gap-4">
+              <div className={`w-14 h-14 rounded-xl bg-gradient-to-br ${pageInfo.color} flex items-center justify-center shadow-lg`}>
+                {currentTab && <currentTab.icon className="w-7 h-7 text-white" />}
+              </div>
+              <div>
+                <h1 className="text-3xl font-bold text-white">{pageInfo.title}</h1>
+                <p className="text-gray-400 text-sm">{pageInfo.subtitle}</p>
+              </div>
             </div>
-            <div>
-              <h1 className="text-3xl font-bold text-white">{pageInfo.title}</h1>
-              <p className="text-gray-400 text-sm">{pageInfo.subtitle}</p>
-            </div>
-          </div>
 
-          {/* User Info */}
-          <div className="flex items-center gap-3">
-            {user?.role === 'admin' && (
+            {/* User Info */}
+            <div className="flex items-center gap-3">
+              {user?.role === 'admin' && (
+                <button
+                  onClick={() => navigate('/admin')}
+                  className="flex items-center gap-2 px-4 py-2 bg-pink-500/20 border border-pink-500/30 rounded-lg text-pink-400 text-sm hover:bg-pink-500/30 transition-colors"
+                >
+                  <Users className="w-4 h-4" />
+                  Admin Panel
+                </button>
+              )}
+              <div className="flex items-center gap-2 px-4 py-2 bg-[#1a1a25] border border-[#2a2a3a] rounded-lg">
+                <User className="w-4 h-4 text-gray-400" />
+                <span className="text-gray-300 text-sm">{user?.username}</span>
+              </div>
               <button
-                onClick={() => navigate('/admin')}
-                className="flex items-center gap-2 px-4 py-2 bg-pink-500/20 border border-pink-500/30 rounded-lg text-pink-400 text-sm hover:bg-pink-500/30 transition-colors"
+                onClick={handleLogout}
+                className="w-10 h-10 bg-[#1a1a25] border border-[#2a2a3a] rounded-lg flex items-center justify-center text-gray-400 hover:text-pink-400 hover:border-pink-500/30 transition-all"
               >
-                <Users className="w-4 h-4" />
-                Admin Panel
+                <LogOut className="w-5 h-5" />
               </button>
-            )}
-            <div className="flex items-center gap-2 px-4 py-2 bg-[#1a1a25] border border-[#2a2a3a] rounded-lg">
-              <User className="w-4 h-4 text-gray-400" />
-              <span className="text-gray-300 text-sm">{user?.username}</span>
             </div>
-            <button
-              onClick={handleLogout}
-              className="w-10 h-10 bg-[#1a1a25] border border-[#2a2a3a] rounded-lg flex items-center justify-center text-gray-400 hover:text-pink-400 hover:border-pink-500/30 transition-all"
-            >
-              <LogOut className="w-5 h-5" />
-            </button>
           </div>
-        </div>
+        )}
+
+        {/* SMS Hub has centered header, show user info separately */}
+        {activeTab === 'sms' && (
+          <div className="flex justify-end mb-4">
+            <div className="flex items-center gap-3">
+              {user?.role === 'admin' && (
+                <button
+                  onClick={() => navigate('/admin')}
+                  className="flex items-center gap-2 px-4 py-2 bg-pink-500/20 border border-pink-500/30 rounded-lg text-pink-400 text-sm hover:bg-pink-500/30 transition-colors"
+                >
+                  <Users className="w-4 h-4" />
+                  Admin Panel
+                </button>
+              )}
+              <div className="flex items-center gap-2 px-4 py-2 bg-[#1a1a25] border border-[#2a2a3a] rounded-lg">
+                <User className="w-4 h-4 text-gray-400" />
+                <span className="text-gray-300 text-sm">{user?.username}</span>
+              </div>
+              <button
+                onClick={handleLogout}
+                className="w-10 h-10 bg-[#1a1a25] border border-[#2a2a3a] rounded-lg flex items-center justify-center text-gray-400 hover:text-pink-400 hover:border-pink-500/30 transition-all"
+              >
+                <LogOut className="w-5 h-5" />
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Tabs */}
-        <div className="flex items-center gap-2 mb-8">
+        <div className="flex items-center justify-center gap-2 mb-8">
           {tabs.map((tab) => (
             <button
               key={tab.id}
