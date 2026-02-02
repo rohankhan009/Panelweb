@@ -1,19 +1,16 @@
 import React, { useState } from 'react';
 import { 
-  Sparkles, Filter, ArrowUpDown, Search, ChevronDown,
-  MessageSquare, Star, Trash2, Archive, Tag
+  Sparkles, ArrowUpDown, Tag, Star, Trash2, Archive
 } from 'lucide-react';
 import { mockSmsMessages } from '../data/mockData';
 
 const MagicSort = () => {
   const [messages] = useState(mockSmsMessages);
   const [sortBy, setSortBy] = useState('time');
-  const [selectedMessages, setSelectedMessages] = useState([]);
 
   const sortOptions = [
     { id: 'time', label: 'Time', icon: ArrowUpDown },
     { id: 'type', label: 'Type', icon: Tag },
-    { id: 'device', label: 'Device', icon: Filter },
     { id: 'starred', label: 'Starred', icon: Star }
   ];
 
@@ -41,7 +38,7 @@ const MagicSort = () => {
         {/* Quick Filters */}
         <div className="grid grid-cols-4 gap-3">
           {quickFilters.map((filter, idx) => (
-            <button key={idx} className={`px-4 py-3 rounded-lg border ${filter.color} text-sm font-medium transition-all hover:scale-[1.02]`}>
+            <button key={idx} className={`px-4 py-3 rounded-lg border ${filter.color} text-sm font-medium transition-all hover:scale-105`}>
               <span className="block text-lg font-bold">{filter.count}</span>
               {filter.label}
             </button>
