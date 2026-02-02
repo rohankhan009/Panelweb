@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   Smartphone, MessageSquare, Sparkles, Settings, User, LogOut,
-  AlertTriangle, Shield
+  AlertTriangle, Shield, Users
 } from 'lucide-react';
 import DevicePanel from '../components/DevicePanel';
 import SmsHub from '../components/SmsHub';
@@ -30,15 +30,15 @@ const Dashboard = ({ user, onLogout }) => {
   const renderContent = () => {
     switch (activeTab) {
       case 'device':
-        return <DevicePanel />;
+        return <DevicePanel user={user} />;
       case 'sms':
-        return <SmsHub />;
+        return <SmsHub user={user} />;
       case 'magic':
-        return <MagicSort />;
+        return <MagicSort user={user} />;
       case 'settings':
         return <SettingsPanel user={user} />;
       default:
-        return <DevicePanel />;
+        return <DevicePanel user={user} />;
     }
   };
 
@@ -98,6 +98,15 @@ const Dashboard = ({ user, onLogout }) => {
 
           {/* User Info */}
           <div className="flex items-center gap-3">
+            {user?.role === 'admin' && (
+              <button
+                onClick={() => navigate('/admin')}
+                className="flex items-center gap-2 px-4 py-2 bg-pink-500/20 border border-pink-500/30 rounded-lg text-pink-400 text-sm hover:bg-pink-500/30 transition-colors"
+              >
+                <Users className="w-4 h-4" />
+                Admin Panel
+              </button>
+            )}
             <div className="flex items-center gap-2 px-4 py-2 bg-[#1a1a25] border border-[#2a2a3a] rounded-lg">
               <User className="w-4 h-4 text-gray-400" />
               <span className="text-gray-300 text-sm">{user?.username}</span>

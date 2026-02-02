@@ -10,10 +10,13 @@ function App() {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // Check for existing session
     const savedUser = localStorage.getItem('user');
     if (savedUser) {
-      setUser(JSON.parse(savedUser));
+      try {
+        setUser(JSON.parse(savedUser));
+      } catch (e) {
+        localStorage.removeItem('user');
+      }
     }
     setIsLoading(false);
   }, []);
@@ -54,7 +57,7 @@ function App() {
           <Route 
             path="/admin" 
             element={
-              user?.role === 'admin' ? <AdminPanel /> : <Navigate to="/" replace />
+              user?.role === 'admin' ? <AdminPanel user={user} /> : <Navigate to="/" replace />
             } 
           />
         </Routes>

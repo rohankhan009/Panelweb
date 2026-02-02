@@ -1,38 +1,82 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { 
   Users, Plus, Search, Edit2, Trash2, Calendar, Shield,
-  User, Key, Clock, Check, X, AlertTriangle
+  User, Key, Check, X, AlertTriangle, ArrowLeft
 } from 'lucide-react';
-import { mockUsers } from '../data/mockData';
+import { getClients, createClient, updateClient, deleteClient, getAdminStats } from '../services/api';
 
-const AdminPanel = () => {
-  const [clients, setClients] = useState(mockUsers.filter(u => u.role === 'client'));
+const AdminPanel = ({ user }) => {
+  const navigate = useNavigate();
+  const [clients, setClients] = useState([]);
+  const [stats, setStats] = useState({ total: 0, active: 0, expired: 0, premium: 0 });
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [editingClient, setEditingClient] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
-
+  const [loading, setLoading] = useState(true);
   const [newClient, setNewClient] = useState({
     username: '',
     password: '',
     plan: 'Basic',
-    expiryDate: '',
-    telegramId: ''
+    expiry_date: '',
+    telegram_id: ''
   });
 
-  const handleCreateClient = () => {
-    const client = {
-      id: Date.now().toString(),
-      ...newClient,
-      role: 'client',
-      createdAt: new Date().toISOString().split('T')[0]
-    };
-    setClients([...clients, client]);
-    setShowCreateModal(false);
-    setNewClient({ username: '', password: '', plan: 'Basic', expiryDate: '', telegramId: '' });
+  const fetchData = async () => {
+    try {
+      setLoading(true);
+      const [clientsRes, statsRes] = await Promise.all([
+        getClients(),
+        getAdminStats()
+      ]);
+      setClients(clientsRes.data);
+      setStats(statsRes.data);
+    } catch (err) {
+      console.error('Failed to fetch data:', err);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleDeleteClient = (id) => {
-    setClients(clients.filter(c => c.id !== id));
+  useEffect(() => {
+    fetchData();
+  }, []);
+
+  const handleCreateClient = async () => {
+    try {
+      await createClient(newClient);
+      setShowCreateModal(false);
+      setNewClient({ username: '', password: '', plan: 'Basic', expiry_date: '', telegram_id: '' });
+      fetchData();
+    } catch (err) {
+      alert(err.response?.data?.detail || 'Failed to create client');
+    }
+  };
+
+  const handleUpdateClient = async () => {
+    try {
+      await updateClient(editingClient.id, {
+        plan: editingClient.plan,
+        expiry_date: editingClient.expiry_date,
+        telegram_id: editingClient.telegram_id,
+        is_active: editingClient.is_active
+      });
+      setEditingClient(null);
+      fetchData();
+    } catch (err) {
+      alert(err.response?.data?.detail || 'Failed to update client');
+    }
+  };
+
+  const handleDeleteClient = async (id) => {
+    if (window.confirm('Are you sure you want to delete this client? All their data will be removed.')) {
+      try {
+        await deleteClient(id);
+        fetchData();
+      } catch (err) {
+        alert(err.response?.data?.detail || 'Failed to delete client');
+      }
+    }
   };
 
   const isExpired = (date) => {
@@ -48,7 +92,7 @@ const AdminPanel = () => {
   };
 
   const filteredClients = clients.filter(c => 
-    c.username.toLowerCase().includes(searchTerm.toLowerCase())
+    c.username?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   return (
@@ -57,6 +101,12 @@ const AdminPanel = () => {
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <div className="flex items-center gap-4">
+            <button
+              onClick={() => navigate('/dashboard')}
+              className="w-10 h-10 bg-[#1a1a25] border border-[#2a2a3a] rounded-lg flex items-center justify-center text-gray-400 hover:text-white transition-colors"
+            >
+              <ArrowLeft className="w-5 h-5" />
+            </button>
             <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-pink-500 to-purple-600 flex items-center justify-center shadow-lg">
               <Users className="w-7 h-7 text-white" />
             </div>
@@ -92,10 +142,10 @@ const AdminPanel = () => {
         {/* Stats */}
         <div className="grid grid-cols-4 gap-4 mb-8">
           {[
-            { label: 'Total Clients', value: clients.length, color: 'text-blue-400', icon: Users },
-            { label: 'Active', value: clients.filter(c => !isExpired(c.expiryDate)).length, color: 'text-green-400', icon: Check },
-            { label: 'Expired', value: clients.filter(c => isExpired(c.expiryDate)).length, color: 'text-red-400', icon: X },
-            { label: 'Premium', value: clients.filter(c => c.plan === 'Premium').length, color: 'text-yellow-400', icon: Shield }
+            { label: 'Total Clients', value: stats.total, color: 'text-blue-400', icon: Users },
+            { label: 'Active', value: stats.active, color: 'text-green-400', icon: Check },
+            { label: 'Expired', value: stats.expired, color: 'text-red-400', icon: X },
+            { label: 'Premium', value: stats.premium, color: 'text-yellow-400', icon: Shield }
           ].map((stat, idx) => (
             <div key={idx} className="bg-[#12121a] border border-[#2a2a3a] rounded-xl p-4 flex items-center gap-4">
               <div className={`w-10 h-10 rounded-lg bg-[#1a1a25] flex items-center justify-center ${stat.color}`}>
@@ -128,7 +178,7 @@ const AdminPanel = () => {
                   <td className="px-4 py-4">
                     <div className="flex items-center gap-3">
                       <div className="w-8 h-8 rounded-full bg-gradient-to-br from-pink-500 to-purple-600 flex items-center justify-center text-white text-sm font-bold">
-                        {client.username.charAt(0).toUpperCase()}
+                        {client.username?.charAt(0).toUpperCase()}
                       </div>
                       <span className="text-white font-medium">{client.username}</span>
                     </div>
@@ -137,6 +187,8 @@ const AdminPanel = () => {
                     <span className={`px-2 py-1 rounded text-xs font-medium ${
                       client.plan === 'Premium' 
                         ? 'bg-yellow-500/20 text-yellow-400' 
+                        : client.plan === 'Unlimited'
+                        ? 'bg-green-500/20 text-green-400'
                         : 'bg-blue-500/20 text-blue-400'
                     }`}>
                       {client.plan}
@@ -145,11 +197,16 @@ const AdminPanel = () => {
                   <td className="px-4 py-4">
                     <div className="flex items-center gap-2 text-gray-400 text-sm">
                       <Calendar className="w-4 h-4" />
-                      {client.expiryDate || 'No expiry'}
+                      {client.expiry_date || 'No expiry'}
                     </div>
                   </td>
                   <td className="px-4 py-4">
-                    {isExpired(client.expiryDate) ? (
+                    {!client.is_active ? (
+                      <span className="flex items-center gap-1 px-2 py-1 bg-gray-500/20 text-gray-400 rounded text-xs">
+                        <X className="w-3 h-3" />
+                        Deactivated
+                      </span>
+                    ) : isExpired(client.expiry_date) ? (
                       <span className="flex items-center gap-1 px-2 py-1 bg-red-500/20 text-red-400 rounded text-xs">
                         <AlertTriangle className="w-3 h-3" />
                         Expired
@@ -157,17 +214,17 @@ const AdminPanel = () => {
                     ) : (
                       <span className="flex items-center gap-1 px-2 py-1 bg-green-500/20 text-green-400 rounded text-xs">
                         <Check className="w-3 h-3" />
-                        {getDaysLeft(client.expiryDate)}
+                        {getDaysLeft(client.expiry_date)}
                       </span>
                     )}
                   </td>
                   <td className="px-4 py-4 text-cyan-400 text-sm">
-                    {client.telegramId || '-'}
+                    {client.telegram_id || '-'}
                   </td>
                   <td className="px-4 py-4">
                     <div className="flex items-center gap-2">
                       <button
-                        onClick={() => setEditingClient(client)}
+                        onClick={() => setEditingClient({...client})}
                         className="w-8 h-8 rounded bg-[#1a1a25] flex items-center justify-center text-blue-400 hover:bg-blue-500/20 transition-colors"
                       >
                         <Edit2 className="w-4 h-4" />
@@ -188,7 +245,7 @@ const AdminPanel = () => {
           {filteredClients.length === 0 && (
             <div className="p-12 text-center">
               <Users className="w-12 h-12 text-gray-600 mx-auto mb-4" />
-              <p className="text-gray-400">No clients found</p>
+              <p className="text-gray-400">{loading ? 'Loading clients...' : 'No clients found'}</p>
             </div>
           )}
         </div>
@@ -251,8 +308,8 @@ const AdminPanel = () => {
                   <Calendar className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
                   <input
                     type="date"
-                    value={newClient.expiryDate}
-                    onChange={(e) => setNewClient({...newClient, expiryDate: e.target.value})}
+                    value={newClient.expiry_date}
+                    onChange={(e) => setNewClient({...newClient, expiry_date: e.target.value})}
                     className="w-full bg-[#1a1a25] border border-[#2a2a3a] rounded-lg pl-10 pr-4 py-2.5 text-white focus:outline-none focus:border-pink-500/50"
                   />
                 </div>
@@ -262,8 +319,8 @@ const AdminPanel = () => {
                 <label className="text-gray-400 text-xs uppercase tracking-wider mb-1 block">Telegram ID</label>
                 <input
                   type="text"
-                  value={newClient.telegramId}
-                  onChange={(e) => setNewClient({...newClient, telegramId: e.target.value})}
+                  value={newClient.telegram_id}
+                  onChange={(e) => setNewClient({...newClient, telegram_id: e.target.value})}
                   className="w-full bg-[#1a1a25] border border-[#2a2a3a] rounded-lg px-4 py-2.5 text-white placeholder-gray-600 focus:outline-none focus:border-pink-500/50"
                   placeholder="@username"
                 />
@@ -282,6 +339,79 @@ const AdminPanel = () => {
                 className="flex-1 py-2.5 bg-gradient-to-r from-pink-500 to-purple-600 rounded-lg text-white font-medium hover:from-pink-400 hover:to-purple-500 transition-all"
               >
                 Create Client
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Client Modal */}
+      {editingClient && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50">
+          <div className="bg-[#12121a] border border-[#2a2a3a] rounded-2xl p-6 w-full max-w-md mx-4">
+            <h2 className="text-xl font-bold text-white mb-6 flex items-center gap-2">
+              <Edit2 className="w-5 h-5 text-blue-400" />
+              Edit Client: {editingClient.username}
+            </h2>
+
+            <div className="space-y-4">
+              <div>
+                <label className="text-gray-400 text-xs uppercase tracking-wider mb-1 block">Plan</label>
+                <select
+                  value={editingClient.plan}
+                  onChange={(e) => setEditingClient({...editingClient, plan: e.target.value})}
+                  className="w-full bg-[#1a1a25] border border-[#2a2a3a] rounded-lg px-4 py-2.5 text-white focus:outline-none focus:border-blue-500/50"
+                >
+                  <option value="Basic">Basic</option>
+                  <option value="Premium">Premium</option>
+                  <option value="Unlimited">Unlimited</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="text-gray-400 text-xs uppercase tracking-wider mb-1 block">Expiry Date</label>
+                <input
+                  type="date"
+                  value={editingClient.expiry_date || ''}
+                  onChange={(e) => setEditingClient({...editingClient, expiry_date: e.target.value})}
+                  className="w-full bg-[#1a1a25] border border-[#2a2a3a] rounded-lg px-4 py-2.5 text-white focus:outline-none focus:border-blue-500/50"
+                />
+              </div>
+
+              <div>
+                <label className="text-gray-400 text-xs uppercase tracking-wider mb-1 block">Telegram ID</label>
+                <input
+                  type="text"
+                  value={editingClient.telegram_id || ''}
+                  onChange={(e) => setEditingClient({...editingClient, telegram_id: e.target.value})}
+                  className="w-full bg-[#1a1a25] border border-[#2a2a3a] rounded-lg px-4 py-2.5 text-white placeholder-gray-600 focus:outline-none focus:border-blue-500/50"
+                  placeholder="@username"
+                />
+              </div>
+
+              <div className="flex items-center justify-between bg-[#1a1a25] border border-[#2a2a3a] rounded-lg p-3">
+                <span className="text-gray-300">Account Active</span>
+                <button
+                  onClick={() => setEditingClient({...editingClient, is_active: !editingClient.is_active})}
+                  className={`w-10 h-6 rounded-full transition-colors ${editingClient.is_active ? 'bg-green-500' : 'bg-[#2a2a3a]'}`}
+                >
+                  <div className={`w-4 h-4 rounded-full bg-white transition-transform ${editingClient.is_active ? 'translate-x-5' : 'translate-x-1'}`} />
+                </button>
+              </div>
+            </div>
+
+            <div className="flex gap-3 mt-6">
+              <button
+                onClick={() => setEditingClient(null)}
+                className="flex-1 py-2.5 bg-[#1a1a25] border border-[#2a2a3a] rounded-lg text-gray-300 font-medium hover:bg-[#20202a] transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleUpdateClient}
+                className="flex-1 py-2.5 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-lg text-white font-medium hover:from-blue-400 hover:to-cyan-400 transition-all"
+              >
+                Save Changes
               </button>
             </div>
           </div>
