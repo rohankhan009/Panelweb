@@ -64,10 +64,10 @@ const Login = ({ onLogin }) => {
   };
 
   return (
-    <div className="min-h-screen bg-[#0a0a0f] flex flex-col items-center justify-center relative overflow-hidden">
+    <div className="min-h-screen bg-[#0a0a0f] flex flex-col items-center justify-center relative overflow-hidden p-4">
       <MatrixBackground />
       
-      <div className="relative z-10 w-full max-w-md mx-4">
+      <div className="relative z-10 w-full max-w-md">
         <div className="bg-[#12121a]/90 backdrop-blur-xl border border-[#2a2a3a] rounded-2xl p-8 shadow-2xl">
           <div className="flex justify-center mb-6">
             <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-pink-500 to-purple-600 flex items-center justify-center shadow-lg shadow-pink-500/30">
