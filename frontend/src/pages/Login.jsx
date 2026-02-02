@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Shield, User, Key, Eye, EyeOff, MessageCircle } from 'lucide-react';
-import { mockUsers } from '../data/mockData';
+import { login as loginApi } from '../services/api';
 
 const MatrixBackground = () => {
   return (
@@ -49,46 +49,32 @@ const Login = ({ onLogin }) => {
     setIsLoading(true);
     setError('');
 
-    setTimeout(() => {
-      const user = mockUsers.find(
-        (u) => u.username === username && u.password === password
-      );
-
-      if (user) {
-        // Check expiry for non-admin users
-        if (user.role !== 'admin' && user.expiryDate) {
-          const expiry = new Date(user.expiryDate);
-          if (expiry < new Date()) {
-            setError('Your account has expired. Contact admin.');
-            setIsLoading(false);
-            return;
-          }
-        }
-        localStorage.setItem('user', JSON.stringify(user));
-        onLogin(user);
-        navigate('/dashboard');
-      } else {
-        setError('Invalid credentials');
-      }
+    try {
+      const response = await loginApi(username, password);
+      const user = response.data.user;
+      localStorage.setItem('user', JSON.stringify(user));
+      onLogin(user);
+      navigate('/dashboard');
+    } catch (err) {
+      const message = err.response?.data?.detail || 'Login failed';
+      setError(message);
+    } finally {
       setIsLoading(false);
-    }, 1000);
+    }
   };
 
   return (
     <div className="min-h-screen bg-[#0a0a0f] flex flex-col items-center justify-center relative overflow-hidden">
       <MatrixBackground />
       
-      {/* Login Card */}
       <div className="relative z-10 w-full max-w-md mx-4">
         <div className="bg-[#12121a]/90 backdrop-blur-xl border border-[#2a2a3a] rounded-2xl p-8 shadow-2xl">
-          {/* Logo */}
           <div className="flex justify-center mb-6">
             <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-pink-500 to-purple-600 flex items-center justify-center shadow-lg shadow-pink-500/30">
               <Shield className="w-10 h-10 text-white" />
             </div>
           </div>
 
-          {/* Title */}
           <h1 className="text-3xl font-bold text-center bg-gradient-to-r from-pink-400 to-purple-400 bg-clip-text text-transparent mb-2">
             PapiAtma Panel
           </h1>
@@ -96,9 +82,7 @@ const Login = ({ onLogin }) => {
             {'>'} SECURE ACCESS REQUIRED
           </p>
 
-          {/* Form */}
           <form onSubmit={handleLogin} className="space-y-5">
-            {/* Username */}
             <div>
               <label className="flex items-center gap-2 text-pink-400 text-xs font-semibold tracking-wider mb-2">
                 <User className="w-4 h-4" />
@@ -113,7 +97,6 @@ const Login = ({ onLogin }) => {
               />
             </div>
 
-            {/* Password */}
             <div>
               <label className="flex items-center gap-2 text-pink-400 text-xs font-semibold tracking-wider mb-2">
                 <Key className="w-4 h-4" />
@@ -137,14 +120,12 @@ const Login = ({ onLogin }) => {
               </div>
             </div>
 
-            {/* Error */}
             {error && (
               <div className="text-red-400 text-sm text-center bg-red-500/10 border border-red-500/20 rounded-lg py-2">
                 {error}
               </div>
             )}
 
-            {/* Submit Button */}
             <button
               type="submit"
               disabled={isLoading}
@@ -155,7 +136,6 @@ const Login = ({ onLogin }) => {
             </button>
           </form>
 
-          {/* Footer */}
           <div className="mt-6 text-center">
             <p className="text-gray-500 text-xs flex items-center justify-center gap-2">
               <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
@@ -168,7 +148,6 @@ const Login = ({ onLogin }) => {
           </div>
         </div>
 
-        {/* Made with love */}
         <div className="text-center mt-6">
           <p className="text-gray-500 text-sm">
             made with <span className="text-pink-500">❤️</span> by PapiAtma
