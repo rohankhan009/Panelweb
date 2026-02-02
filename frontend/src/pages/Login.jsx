@@ -75,10 +75,10 @@ const Login = ({ onLogin }) => {
             </div>
           </div>
 
-          <h1 className="text-3xl font-bold text-center bg-gradient-to-r from-pink-400 to-purple-400 bg-clip-text text-transparent mb-2">
+          <h1 className="text-2xl sm:text-3xl font-bold text-center bg-gradient-to-r from-pink-400 to-purple-400 bg-clip-text text-transparent mb-2">
             PapiAtma Panel
           </h1>
-          <p className="text-center text-pink-400/80 text-sm tracking-wider mb-8">
+          <p className="text-center text-pink-400/80 text-xs sm:text-sm tracking-wider mb-6 sm:mb-8">
             {'>'} SECURE ACCESS REQUIRED
           </p>
 
