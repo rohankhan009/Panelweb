@@ -1,19 +1,21 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { 
   User, Shield, Monitor, Bell, Database, ChevronDown, ChevronUp,
-  Key, LogOut, Trash2, Upload, Clipboard, X, Check
+  Key, LogOut, Trash2, Upload, Clipboard, X, Check, AlertCircle
 } from 'lucide-react';
 import { 
   getFirebaseAccounts, createFirebaseAccount, deleteFirebaseAccount,
   getSessions, deleteSession 
 } from '../services/api';
 
-const SettingsPanel = ({ user, onFirebaseChange }) => {
+const SettingsPanel = ({ user, onFirebaseAdded }) => {
   const [expandedSection, setExpandedSection] = useState(null);
   const [firebaseAccounts, setFirebaseAccounts] = useState([]);
   const [sessions, setSessions] = useState([]);
   const [showAddFirebase, setShowAddFirebase] = useState(false);
   const [activeFirebase, setActiveFirebase] = useState(null);
+  const [uploading, setUploading] = useState(false);
+  const [uploadSuccess, setUploadSuccess] = useState(false);
   const fileInputRef = useRef(null);
   const [newFirebase, setNewFirebase] = useState({
     name: '',
@@ -46,7 +48,6 @@ const SettingsPanel = ({ user, onFirebaseChange }) => {
       if (res.data.length > 0) {
         const active = localStorage.getItem('activeFirebase') || res.data[res.data.length - 1].id;
         setActiveFirebase(active);
-        if (onFirebaseChange) onFirebaseChange(res.data.find(f => f.id === active));
       }
     } catch (err) {
       console.error('Failed to fetch firebase accounts:', err);
@@ -71,13 +72,17 @@ const SettingsPanel = ({ user, onFirebaseChange }) => {
       const res = await createFirebaseAccount(user.id, newFirebase);
       setShowAddFirebase(false);
       setNewFirebase({ name: '', api_key: '', database_url: '', project_id: '', auth_domain: '', storage_bucket: '', messaging_sender_id: '', app_id: '' });
+      setUploadSuccess(false);
       fetchFirebase();
+      // Notify parent that Firebase was added - devices should reload
+      if (onFirebaseAdded) onFirebaseAdded();
       // Auto switch to new account
       if (res.data?.account?.id) {
         handleSwitchFirebase(res.data.account.id);
       }
     } catch (err) {
       console.error('Failed to add firebase:', err);
+      alert('Failed to add Firebase account');
     }
   };
 
@@ -86,6 +91,7 @@ const SettingsPanel = ({ user, onFirebaseChange }) => {
       try {
         await deleteFirebaseAccount(accountId);
         fetchFirebase();
+        if (onFirebaseAdded) onFirebaseAdded();
       } catch (err) {
         console.error('Failed to delete firebase:', err);
       }
@@ -95,8 +101,6 @@ const SettingsPanel = ({ user, onFirebaseChange }) => {
   const handleSwitchFirebase = (accountId) => {
     setActiveFirebase(accountId);
     localStorage.setItem('activeFirebase', accountId);
-    const account = firebaseAccounts.find(f => f.id === accountId);
-    if (onFirebaseChange) onFirebaseChange(account);
   };
 
   const toggleSection = (section) => {
@@ -109,48 +113,67 @@ const SettingsPanel = ({ user, onFirebaseChange }) => {
     setNotifications(updated);
   };
 
-  // Handle file upload
+  // Handle file upload - Fixed
   const handleFileUpload = (e) => {
     const file = e.target.files[0];
     if (!file) return;
     
+    setUploading(true);
     const reader = new FileReader();
     reader.onload = (event) => {
       try {
         const json = JSON.parse(event.target.result);
-        setNewFirebase({
-          ...newFirebase,
-          api_key: json.apiKey || json.api_key || '',
-          database_url: json.databaseURL || json.database_url || '',
-          project_id: json.projectId || json.project_id || '',
-          auth_domain: json.authDomain || json.auth_domain || '',
-          storage_bucket: json.storageBucket || json.storage_bucket || '',
-          messaging_sender_id: json.messagingSenderId || json.messaging_sender_id || '',
-          app_id: json.appId || json.app_id || ''
-        });
+        console.log('Parsed JSON:', json);
+        
+        // Update form with parsed values - checking multiple possible key names
+        setNewFirebase(prev => ({
+          ...prev,
+          api_key: json.apiKey || json.api_key || json.API_KEY || prev.api_key,
+          database_url: json.databaseURL || json.database_url || json.databaseUrl || prev.database_url,
+          project_id: json.projectId || json.project_id || json.PROJECT_ID || prev.project_id,
+          auth_domain: json.authDomain || json.auth_domain || prev.auth_domain,
+          storage_bucket: json.storageBucket || json.storage_bucket || prev.storage_bucket,
+          messaging_sender_id: json.messagingSenderId || json.messaging_sender_id || prev.messaging_sender_id,
+          app_id: json.appId || json.app_id || prev.app_id
+        }));
+        setUploadSuccess(true);
+        setTimeout(() => setUploadSuccess(false), 3000);
       } catch (err) {
-        alert('Invalid JSON file');
+        console.error('JSON parse error:', err);
+        alert('Invalid JSON file. Please upload a valid Firebase config file.');
       }
+      setUploading(false);
+    };
+    reader.onerror = () => {
+      alert('Error reading file');
+      setUploading(false);
     };
     reader.readAsText(file);
+    // Reset input so same file can be selected again
+    e.target.value = '';
   };
 
   const handlePasteJson = async () => {
     try {
       const text = await navigator.clipboard.readText();
       const json = JSON.parse(text);
-      setNewFirebase({
-        ...newFirebase,
-        api_key: json.apiKey || json.api_key || '',
-        database_url: json.databaseURL || json.database_url || '',
-        project_id: json.projectId || json.project_id || '',
-        auth_domain: json.authDomain || json.auth_domain || '',
-        storage_bucket: json.storageBucket || json.storage_bucket || '',
-        messaging_sender_id: json.messagingSenderId || json.messaging_sender_id || '',
-        app_id: json.appId || json.app_id || ''
-      });
+      console.log('Pasted JSON:', json);
+      
+      setNewFirebase(prev => ({
+        ...prev,
+        api_key: json.apiKey || json.api_key || json.API_KEY || prev.api_key,
+        database_url: json.databaseURL || json.database_url || json.databaseUrl || prev.database_url,
+        project_id: json.projectId || json.project_id || json.PROJECT_ID || prev.project_id,
+        auth_domain: json.authDomain || json.auth_domain || prev.auth_domain,
+        storage_bucket: json.storageBucket || json.storage_bucket || prev.storage_bucket,
+        messaging_sender_id: json.messagingSenderId || json.messaging_sender_id || prev.messaging_sender_id,
+        app_id: json.appId || json.app_id || prev.app_id
+      }));
+      setUploadSuccess(true);
+      setTimeout(() => setUploadSuccess(false), 3000);
     } catch (err) {
-      alert('Invalid JSON in clipboard');
+      console.error('Paste error:', err);
+      alert('Invalid JSON in clipboard or clipboard access denied');
     }
   };
 
@@ -219,7 +242,6 @@ const SettingsPanel = ({ user, onFirebaseChange }) => {
         
         {expandedSection === 'firebase' && (
           <div className="border-t border-[#2a2a3a] p-4 bg-[#0f0f15]">
-            {/* Add Account Button */}
             <div className="flex justify-end mb-4">
               <button 
                 onClick={() => setShowAddFirebase(true)}
@@ -229,7 +251,6 @@ const SettingsPanel = ({ user, onFirebaseChange }) => {
               </button>
             </div>
 
-            {/* Firebase Cards */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {firebaseAccounts.map((account) => (
                 <div 
@@ -286,7 +307,7 @@ const SettingsPanel = ({ user, onFirebaseChange }) => {
               <div className="text-center py-8">
                 <Database className="w-12 h-12 text-gray-600 mx-auto mb-3" />
                 <p className="text-gray-400">No Firebase accounts added</p>
-                <p className="text-gray-500 text-sm">Add your Firebase configuration to connect devices</p>
+                <p className="text-gray-500 text-sm">Add Firebase to connect devices</p>
               </div>
             )}
           </div>
@@ -319,7 +340,7 @@ const SettingsPanel = ({ user, onFirebaseChange }) => {
                   <Key className="w-5 h-5 text-green-400 flex-shrink-0" />
                   <div>
                     <p className="text-white font-medium">Two-Factor Authentication</p>
-                    <p className="text-gray-500 text-xs">Add an extra layer of security</p>
+                    <p className="text-gray-500 text-xs">Add extra security</p>
                   </div>
                 </div>
                 <button className="px-3 py-1.5 bg-green-500/20 border border-green-500/30 rounded-lg text-green-400 text-sm w-full sm:w-auto">Enable</button>
@@ -330,7 +351,7 @@ const SettingsPanel = ({ user, onFirebaseChange }) => {
                   <p className="text-white font-medium">Change Password</p>
                   <p className="text-gray-500 text-xs">Last changed 30 days ago</p>
                 </div>
-                <button className="px-3 py-1.5 bg-[#12121a] border border-[#3a3a4a] rounded-lg text-gray-300 text-sm hover:border-green-500/30 w-full sm:w-auto">Update</button>
+                <button className="px-3 py-1.5 bg-[#12121a] border border-[#3a3a4a] rounded-lg text-gray-300 text-sm w-full sm:w-auto">Update</button>
               </div>
             </div>
           </div>
@@ -352,7 +373,7 @@ const SettingsPanel = ({ user, onFirebaseChange }) => {
                 <h3 className="text-white font-semibold">Active Sessions</h3>
                 <span className="px-2 py-0.5 rounded text-xs font-medium bg-purple-500/20 text-purple-400">{sessions.length} active</span>
               </div>
-              <p className="text-gray-500 text-sm">{sessions.length}/{sessions.length} devices logged in</p>
+              <p className="text-gray-500 text-sm">{sessions.length} devices logged in</p>
             </div>
           </div>
           {expandedSection === 'sessions' ? <ChevronUp className="w-5 h-5 text-gray-500 flex-shrink-0" /> : <ChevronDown className="w-5 h-5 text-gray-500 flex-shrink-0" />}
@@ -396,7 +417,7 @@ const SettingsPanel = ({ user, onFirebaseChange }) => {
             </div>
             <div className="text-left">
               <h3 className="text-white font-semibold">Notifications</h3>
-              <p className="text-gray-500 text-sm">Telegram message forwarding</p>
+              <p className="text-gray-500 text-sm">Telegram forwarding</p>
             </div>
           </div>
           {expandedSection === 'notifications' ? <ChevronUp className="w-5 h-5 text-gray-500 flex-shrink-0" /> : <ChevronDown className="w-5 h-5 text-gray-500 flex-shrink-0" />}
@@ -427,13 +448,21 @@ const SettingsPanel = ({ user, onFirebaseChange }) => {
           <div className="bg-[#12121a] border border-[#2a2a3a] rounded-2xl p-4 sm:p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-lg sm:text-xl font-bold text-white flex items-center gap-2">
-                <span className="text-2xl">⚙️</span>
+                <Database className="w-5 h-5 text-yellow-400" />
                 Add Firebase Account
               </h2>
-              <button onClick={() => setShowAddFirebase(false)} className="text-gray-400 hover:text-white p-1">
+              <button onClick={() => { setShowAddFirebase(false); setUploadSuccess(false); }} className="text-gray-400 hover:text-white p-1">
                 <X className="w-5 h-5" />
               </button>
             </div>
+
+            {/* Success Message */}
+            {uploadSuccess && (
+              <div className="mb-4 p-3 bg-green-500/20 border border-green-500/30 rounded-lg flex items-center gap-2 text-green-400 text-sm">
+                <Check className="w-4 h-4" />
+                JSON parsed successfully! Fields auto-filled.
+              </div>
+            )}
 
             <div className="space-y-4">
               {/* Account Name */}
@@ -444,27 +473,28 @@ const SettingsPanel = ({ user, onFirebaseChange }) => {
                   value={newFirebase.name}
                   onChange={(e) => setNewFirebase({...newFirebase, name: e.target.value})}
                   className="w-full bg-[#1a1a25] border border-cyan-500/50 rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-cyan-500/50"
-                  placeholder="e.g., Production, Staging"
+                  placeholder="e.g., Production, My App"
                 />
               </div>
 
-              {/* Firebase Configuration Header with Upload/Paste */}
+              {/* Upload/Paste Header */}
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                 <span className="text-gray-400 text-sm">Firebase Configuration</span>
                 <div className="flex items-center gap-2">
                   <input
                     type="file"
                     ref={fileInputRef}
-                    accept=".json"
+                    accept=".json,application/json"
                     onChange={handleFileUpload}
                     className="hidden"
                   />
                   <button 
                     onClick={() => fileInputRef.current?.click()}
+                    disabled={uploading}
                     className="flex items-center gap-1 px-3 py-1.5 text-cyan-400 text-sm hover:bg-cyan-500/10 rounded transition-colors border border-cyan-500/30"
                   >
                     <Upload className="w-4 h-4" />
-                    Upload JSON
+                    {uploading ? 'Loading...' : 'Upload JSON'}
                   </button>
                   <button 
                     onClick={handlePasteJson}
@@ -550,7 +580,7 @@ const SettingsPanel = ({ user, onFirebaseChange }) => {
 
             <div className="flex flex-col sm:flex-row gap-3 mt-6">
               <button
-                onClick={() => setShowAddFirebase(false)}
+                onClick={() => { setShowAddFirebase(false); setUploadSuccess(false); }}
                 className="flex-1 py-3 bg-[#1a1a25] border border-[#2a2a3a] rounded-lg text-gray-300 font-medium hover:bg-[#20202a] transition-colors flex items-center justify-center gap-2"
               >
                 <X className="w-4 h-4" />
