@@ -1,19 +1,20 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   User, Shield, Monitor, Bell, Database, ChevronDown, ChevronUp,
-  Edit2, Key, LogOut, Trash2, Upload, Clipboard, X
+  Key, LogOut, Trash2, Upload, Clipboard, X, Check
 } from 'lucide-react';
 import { 
   getFirebaseAccounts, createFirebaseAccount, deleteFirebaseAccount,
   getSessions, deleteSession 
 } from '../services/api';
 
-const SettingsPanel = ({ user }) => {
+const SettingsPanel = ({ user, onFirebaseChange }) => {
   const [expandedSection, setExpandedSection] = useState(null);
   const [firebaseAccounts, setFirebaseAccounts] = useState([]);
   const [sessions, setSessions] = useState([]);
   const [showAddFirebase, setShowAddFirebase] = useState(false);
   const [activeFirebase, setActiveFirebase] = useState(null);
+  const fileInputRef = useRef(null);
   const [newFirebase, setNewFirebase] = useState({
     name: '',
     api_key: '',
@@ -42,8 +43,10 @@ const SettingsPanel = ({ user }) => {
     try {
       const res = await getFirebaseAccounts(user.id);
       setFirebaseAccounts(res.data);
-      if (res.data.length > 0 && !activeFirebase) {
-        setActiveFirebase(res.data[res.data.length - 1].id);
+      if (res.data.length > 0) {
+        const active = localStorage.getItem('activeFirebase') || res.data[res.data.length - 1].id;
+        setActiveFirebase(active);
+        if (onFirebaseChange) onFirebaseChange(res.data.find(f => f.id === active));
       }
     } catch (err) {
       console.error('Failed to fetch firebase accounts:', err);
@@ -60,11 +63,19 @@ const SettingsPanel = ({ user }) => {
   };
 
   const handleAddFirebase = async () => {
+    if (!newFirebase.name || !newFirebase.api_key || !newFirebase.project_id) {
+      alert('Please fill required fields: Name, API Key, Project ID');
+      return;
+    }
     try {
-      await createFirebaseAccount(user.id, newFirebase);
+      const res = await createFirebaseAccount(user.id, newFirebase);
       setShowAddFirebase(false);
       setNewFirebase({ name: '', api_key: '', database_url: '', project_id: '', auth_domain: '', storage_bucket: '', messaging_sender_id: '', app_id: '' });
       fetchFirebase();
+      // Auto switch to new account
+      if (res.data?.account?.id) {
+        handleSwitchFirebase(res.data.account.id);
+      }
     } catch (err) {
       console.error('Failed to add firebase:', err);
     }
@@ -83,6 +94,9 @@ const SettingsPanel = ({ user }) => {
 
   const handleSwitchFirebase = (accountId) => {
     setActiveFirebase(accountId);
+    localStorage.setItem('activeFirebase', accountId);
+    const account = firebaseAccounts.find(f => f.id === accountId);
+    if (onFirebaseChange) onFirebaseChange(account);
   };
 
   const toggleSection = (section) => {
@@ -95,19 +109,45 @@ const SettingsPanel = ({ user }) => {
     setNotifications(updated);
   };
 
+  // Handle file upload
+  const handleFileUpload = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const json = JSON.parse(event.target.result);
+        setNewFirebase({
+          ...newFirebase,
+          api_key: json.apiKey || json.api_key || '',
+          database_url: json.databaseURL || json.database_url || '',
+          project_id: json.projectId || json.project_id || '',
+          auth_domain: json.authDomain || json.auth_domain || '',
+          storage_bucket: json.storageBucket || json.storage_bucket || '',
+          messaging_sender_id: json.messagingSenderId || json.messaging_sender_id || '',
+          app_id: json.appId || json.app_id || ''
+        });
+      } catch (err) {
+        alert('Invalid JSON file');
+      }
+    };
+    reader.readAsText(file);
+  };
+
   const handlePasteJson = async () => {
     try {
       const text = await navigator.clipboard.readText();
       const json = JSON.parse(text);
       setNewFirebase({
         ...newFirebase,
-        api_key: json.apiKey || '',
-        database_url: json.databaseURL || '',
-        project_id: json.projectId || '',
-        auth_domain: json.authDomain || '',
-        storage_bucket: json.storageBucket || '',
-        messaging_sender_id: json.messagingSenderId || '',
-        app_id: json.appId || ''
+        api_key: json.apiKey || json.api_key || '',
+        database_url: json.databaseURL || json.database_url || '',
+        project_id: json.projectId || json.project_id || '',
+        auth_domain: json.authDomain || json.auth_domain || '',
+        storage_bucket: json.storageBucket || json.storage_bucket || '',
+        messaging_sender_id: json.messagingSenderId || json.messaging_sender_id || '',
+        app_id: json.appId || json.app_id || ''
       });
     } catch (err) {
       alert('Invalid JSON in clipboard');
@@ -122,26 +162,26 @@ const SettingsPanel = ({ user }) => {
           onClick={() => toggleSection('profile')}
           className="w-full flex items-center justify-between p-4 hover:bg-[#15151f] transition-colors"
         >
-          <div className="flex items-center gap-4">
-            <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-cyan-500 to-blue-500 flex items-center justify-center">
+          <div className="flex items-center gap-3 sm:gap-4">
+            <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-cyan-500 to-blue-500 flex items-center justify-center flex-shrink-0">
               <User className="w-5 h-5 text-white" />
             </div>
-            <div className="text-left">
-              <div className="flex items-center gap-2">
+            <div className="text-left min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
                 <h3 className="text-white font-semibold">Profile</h3>
                 <span className="px-2 py-0.5 rounded text-xs font-medium bg-green-500/20 text-green-400">
                   {user?.plan || 'Unlimited'}
                 </span>
               </div>
-              <p className="text-gray-500 text-sm">Logged in as {user?.username}</p>
+              <p className="text-gray-500 text-sm truncate">Logged in as {user?.username}</p>
             </div>
           </div>
-          {expandedSection === 'profile' ? <ChevronUp className="w-5 h-5 text-gray-500" /> : <ChevronDown className="w-5 h-5 text-gray-500" />}
+          {expandedSection === 'profile' ? <ChevronUp className="w-5 h-5 text-gray-500 flex-shrink-0" /> : <ChevronDown className="w-5 h-5 text-gray-500 flex-shrink-0" />}
         </button>
         
         {expandedSection === 'profile' && (
           <div className="border-t border-[#2a2a3a] p-4 bg-[#0f0f15]">
-            <div className="grid grid-cols-2 gap-4 mb-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
               <div>
                 <label className="text-gray-400 text-xs uppercase tracking-wider mb-1 block">Username</label>
                 <div className="bg-[#1a1a25] border border-[#2a2a3a] rounded-lg px-3 py-2 text-white">{user?.username}</div>
@@ -165,8 +205,8 @@ const SettingsPanel = ({ user }) => {
           onClick={() => toggleSection('firebase')}
           className="w-full flex items-center justify-between p-4 hover:bg-[#15151f] transition-colors"
         >
-          <div className="flex items-center gap-4">
-            <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-yellow-500 to-orange-500 flex items-center justify-center">
+          <div className="flex items-center gap-3 sm:gap-4">
+            <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-yellow-500 to-orange-500 flex items-center justify-center flex-shrink-0">
               <Database className="w-5 h-5 text-white" />
             </div>
             <div className="text-left">
@@ -174,7 +214,7 @@ const SettingsPanel = ({ user }) => {
               <p className="text-gray-500 text-sm">{firebaseAccounts.length} configuration(s)</p>
             </div>
           </div>
-          {expandedSection === 'firebase' ? <ChevronUp className="w-5 h-5 text-gray-500" /> : <ChevronDown className="w-5 h-5 text-gray-500" />}
+          {expandedSection === 'firebase' ? <ChevronUp className="w-5 h-5 text-gray-500 flex-shrink-0" /> : <ChevronDown className="w-5 h-5 text-gray-500 flex-shrink-0" />}
         </button>
         
         {expandedSection === 'firebase' && (
@@ -190,7 +230,7 @@ const SettingsPanel = ({ user }) => {
             </div>
 
             {/* Firebase Cards */}
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {firebaseAccounts.map((account) => (
                 <div 
                   key={account.id} 
@@ -201,16 +241,16 @@ const SettingsPanel = ({ user }) => {
                   }`}
                 >
                   {activeFirebase === account.id && (
-                    <div className="absolute -top-1 -right-1 w-5 h-5 bg-cyan-500 rounded-full flex items-center justify-center">
-                      <span className="text-white text-xs">✓</span>
+                    <div className="absolute -top-2 -right-2 w-6 h-6 bg-cyan-500 rounded-full flex items-center justify-center">
+                      <Check className="w-4 h-4 text-white" />
                     </div>
                   )}
                   <div className="flex items-start gap-3 mb-3">
-                    <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center">
+                    <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center flex-shrink-0">
                       <Database className="w-5 h-5 text-white" />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <h4 className="text-white font-semibold">{account.name}</h4>
+                      <h4 className="text-white font-semibold truncate">{account.name}</h4>
                       <p className="text-gray-500 text-xs truncate">{account.project_id}</p>
                     </div>
                   </div>
@@ -222,7 +262,7 @@ const SettingsPanel = ({ user }) => {
 
                   <div className="flex items-center gap-2">
                     {activeFirebase === account.id ? (
-                      <span className="flex-1 py-2 text-center text-cyan-400 text-sm">Currently Active</span>
+                      <span className="flex-1 py-2 text-center text-cyan-400 text-sm font-medium">Currently Active</span>
                     ) : (
                       <button 
                         onClick={() => handleSwitchFirebase(account.id)}
@@ -259,8 +299,8 @@ const SettingsPanel = ({ user }) => {
           onClick={() => toggleSection('security')}
           className="w-full flex items-center justify-between p-4 hover:bg-[#15151f] transition-colors"
         >
-          <div className="flex items-center gap-4">
-            <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-green-500 to-emerald-500 flex items-center justify-center">
+          <div className="flex items-center gap-3 sm:gap-4">
+            <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-green-500 to-emerald-500 flex items-center justify-center flex-shrink-0">
               <Shield className="w-5 h-5 text-white" />
             </div>
             <div className="text-left">
@@ -268,29 +308,29 @@ const SettingsPanel = ({ user }) => {
               <p className="text-gray-500 text-sm">2FA and password settings</p>
             </div>
           </div>
-          {expandedSection === 'security' ? <ChevronUp className="w-5 h-5 text-gray-500" /> : <ChevronDown className="w-5 h-5 text-gray-500" />}
+          {expandedSection === 'security' ? <ChevronUp className="w-5 h-5 text-gray-500 flex-shrink-0" /> : <ChevronDown className="w-5 h-5 text-gray-500 flex-shrink-0" />}
         </button>
         
         {expandedSection === 'security' && (
           <div className="border-t border-[#2a2a3a] p-4 bg-[#0f0f15]">
             <div className="space-y-4">
-              <div className="flex items-center justify-between bg-[#1a1a25] border border-[#2a2a3a] rounded-lg p-3">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-[#1a1a25] border border-[#2a2a3a] rounded-lg p-3">
                 <div className="flex items-center gap-3">
-                  <Key className="w-5 h-5 text-green-400" />
+                  <Key className="w-5 h-5 text-green-400 flex-shrink-0" />
                   <div>
                     <p className="text-white font-medium">Two-Factor Authentication</p>
                     <p className="text-gray-500 text-xs">Add an extra layer of security</p>
                   </div>
                 </div>
-                <button className="px-3 py-1.5 bg-green-500/20 border border-green-500/30 rounded-lg text-green-400 text-sm">Enable</button>
+                <button className="px-3 py-1.5 bg-green-500/20 border border-green-500/30 rounded-lg text-green-400 text-sm w-full sm:w-auto">Enable</button>
               </div>
               
-              <div className="flex items-center justify-between bg-[#1a1a25] border border-[#2a2a3a] rounded-lg p-3">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-[#1a1a25] border border-[#2a2a3a] rounded-lg p-3">
                 <div>
                   <p className="text-white font-medium">Change Password</p>
                   <p className="text-gray-500 text-xs">Last changed 30 days ago</p>
                 </div>
-                <button className="px-3 py-1.5 bg-[#12121a] border border-[#3a3a4a] rounded-lg text-gray-300 text-sm hover:border-green-500/30">Update</button>
+                <button className="px-3 py-1.5 bg-[#12121a] border border-[#3a3a4a] rounded-lg text-gray-300 text-sm hover:border-green-500/30 w-full sm:w-auto">Update</button>
               </div>
             </div>
           </div>
@@ -303,19 +343,19 @@ const SettingsPanel = ({ user }) => {
           onClick={() => toggleSection('sessions')}
           className="w-full flex items-center justify-between p-4 hover:bg-[#15151f] transition-colors"
         >
-          <div className="flex items-center gap-4">
-            <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center">
+          <div className="flex items-center gap-3 sm:gap-4">
+            <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center flex-shrink-0">
               <Monitor className="w-5 h-5 text-white" />
             </div>
             <div className="text-left">
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 <h3 className="text-white font-semibold">Active Sessions</h3>
                 <span className="px-2 py-0.5 rounded text-xs font-medium bg-purple-500/20 text-purple-400">{sessions.length} active</span>
               </div>
               <p className="text-gray-500 text-sm">{sessions.length}/{sessions.length} devices logged in</p>
             </div>
           </div>
-          {expandedSection === 'sessions' ? <ChevronUp className="w-5 h-5 text-gray-500" /> : <ChevronDown className="w-5 h-5 text-gray-500" />}
+          {expandedSection === 'sessions' ? <ChevronUp className="w-5 h-5 text-gray-500 flex-shrink-0" /> : <ChevronDown className="w-5 h-5 text-gray-500 flex-shrink-0" />}
         </button>
         
         {expandedSection === 'sessions' && (
@@ -326,14 +366,14 @@ const SettingsPanel = ({ user }) => {
               <div className="space-y-3">
                 {sessions.map((session) => (
                   <div key={session.id} className="flex items-center justify-between bg-[#1a1a25] border border-[#2a2a3a] rounded-lg p-3">
-                    <div className="flex items-center gap-3">
-                      <Monitor className="w-5 h-5 text-purple-400" />
-                      <div>
-                        <p className="text-white font-medium flex items-center gap-2">
-                          {session.device_info}
-                          {session.is_current && <span className="px-1.5 py-0.5 bg-green-500/20 text-green-400 text-xs rounded">Current</span>}
+                    <div className="flex items-center gap-3 min-w-0">
+                      <Monitor className="w-5 h-5 text-purple-400 flex-shrink-0" />
+                      <div className="min-w-0">
+                        <p className="text-white font-medium flex items-center gap-2 flex-wrap">
+                          <span className="truncate">{session.device_info}</span>
+                          {session.is_current && <span className="px-1.5 py-0.5 bg-green-500/20 text-green-400 text-xs rounded flex-shrink-0">Current</span>}
                         </p>
-                        <p className="text-gray-500 text-xs">{session.ip} - {session.location}</p>
+                        <p className="text-gray-500 text-xs truncate">{session.ip} - {session.location}</p>
                       </div>
                     </div>
                   </div>
@@ -350,8 +390,8 @@ const SettingsPanel = ({ user }) => {
           onClick={() => toggleSection('notifications')}
           className="w-full flex items-center justify-between p-4 hover:bg-[#15151f] transition-colors"
         >
-          <div className="flex items-center gap-4">
-            <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-500 flex items-center justify-center">
+          <div className="flex items-center gap-3 sm:gap-4">
+            <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-500 flex items-center justify-center flex-shrink-0">
               <Bell className="w-5 h-5 text-white" />
             </div>
             <div className="text-left">
@@ -359,7 +399,7 @@ const SettingsPanel = ({ user }) => {
               <p className="text-gray-500 text-sm">Telegram message forwarding</p>
             </div>
           </div>
-          {expandedSection === 'notifications' ? <ChevronUp className="w-5 h-5 text-gray-500" /> : <ChevronDown className="w-5 h-5 text-gray-500" />}
+          {expandedSection === 'notifications' ? <ChevronUp className="w-5 h-5 text-gray-500 flex-shrink-0" /> : <ChevronDown className="w-5 h-5 text-gray-500 flex-shrink-0" />}
         </button>
         
         {expandedSection === 'notifications' && (
@@ -381,16 +421,16 @@ const SettingsPanel = ({ user }) => {
         )}
       </div>
 
-      {/* Add Firebase Modal - Exact like original */}
+      {/* Add Firebase Modal */}
       {showAddFirebase && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50">
-          <div className="bg-[#12121a] border border-[#2a2a3a] rounded-2xl p-6 w-full max-w-lg mx-4">
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-[#12121a] border border-[#2a2a3a] rounded-2xl p-4 sm:p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-6">
-              <h2 className="text-xl font-bold text-white flex items-center gap-2">
+              <h2 className="text-lg sm:text-xl font-bold text-white flex items-center gap-2">
                 <span className="text-2xl">⚙️</span>
-                Add Environment Account
+                Add Firebase Account
               </h2>
-              <button onClick={() => setShowAddFirebase(false)} className="text-gray-400 hover:text-white">
+              <button onClick={() => setShowAddFirebase(false)} className="text-gray-400 hover:text-white p-1">
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -398,27 +438,37 @@ const SettingsPanel = ({ user }) => {
             <div className="space-y-4">
               {/* Account Name */}
               <div>
-                <label className="text-gray-400 text-xs uppercase tracking-wider mb-1 block">Account Name</label>
+                <label className="text-gray-400 text-xs uppercase tracking-wider mb-1 block">Account Name *</label>
                 <input
                   type="text"
                   value={newFirebase.name}
                   onChange={(e) => setNewFirebase({...newFirebase, name: e.target.value})}
                   className="w-full bg-[#1a1a25] border border-cyan-500/50 rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-cyan-500/50"
-                  placeholder="e.g., Production, Staging, Client A"
+                  placeholder="e.g., Production, Staging"
                 />
               </div>
 
-              {/* Firebase Configuration Header */}
-              <div className="flex items-center justify-between">
+              {/* Firebase Configuration Header with Upload/Paste */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                 <span className="text-gray-400 text-sm">Firebase Configuration</span>
                 <div className="flex items-center gap-2">
-                  <button className="flex items-center gap-1 px-3 py-1.5 text-cyan-400 text-sm hover:bg-cyan-500/10 rounded transition-colors">
+                  <input
+                    type="file"
+                    ref={fileInputRef}
+                    accept=".json"
+                    onChange={handleFileUpload}
+                    className="hidden"
+                  />
+                  <button 
+                    onClick={() => fileInputRef.current?.click()}
+                    className="flex items-center gap-1 px-3 py-1.5 text-cyan-400 text-sm hover:bg-cyan-500/10 rounded transition-colors border border-cyan-500/30"
+                  >
                     <Upload className="w-4 h-4" />
                     Upload JSON
                   </button>
                   <button 
                     onClick={handlePasteJson}
-                    className="flex items-center gap-1 px-3 py-1.5 text-cyan-400 text-sm hover:bg-cyan-500/10 rounded transition-colors"
+                    className="flex items-center gap-1 px-3 py-1.5 text-cyan-400 text-sm hover:bg-cyan-500/10 rounded transition-colors border border-cyan-500/30"
                   >
                     <Clipboard className="w-4 h-4" />
                     Paste
@@ -465,7 +515,7 @@ const SettingsPanel = ({ user }) => {
               {/* Optional Fields */}
               <div>
                 <label className="text-gray-500 text-xs uppercase tracking-wider mb-2 block">OPTIONAL</label>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <input
                     type="text"
                     value={newFirebase.auth_domain}
@@ -498,7 +548,7 @@ const SettingsPanel = ({ user }) => {
               </div>
             </div>
 
-            <div className="flex gap-3 mt-6">
+            <div className="flex flex-col sm:flex-row gap-3 mt-6">
               <button
                 onClick={() => setShowAddFirebase(false)}
                 className="flex-1 py-3 bg-[#1a1a25] border border-[#2a2a3a] rounded-lg text-gray-300 font-medium hover:bg-[#20202a] transition-colors flex items-center justify-center gap-2"
