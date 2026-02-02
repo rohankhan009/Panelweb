@@ -32,3 +32,71 @@
         transform: rotate(360deg);
     }
 }
+
+/* Matrix Rain Animation */
+.matrix-rain {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    overflow: hidden;
+}
+
+.matrix-column {
+    position: absolute;
+    top: -100%;
+    display: flex;
+    flex-direction: column;
+    animation: matrix-fall linear infinite;
+}
+
+.matrix-char {
+    color: #0f8a0f;
+    font-family: 'Courier New', monospace;
+    font-size: 14px;
+    text-shadow: 0 0 10px #0f8a0f;
+    line-height: 1.2;
+}
+
+@keyframes matrix-fall {
+    0% {
+        transform: translateY(-100%);
+    }
+    100% {
+        transform: translateY(200vh);
+    }
+}
+
+/* Scrollbar Styling */
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: #0a0a0f;
+}
+
+::-webkit-scrollbar-thumb {
+    background: #2a2a3a;
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #3a3a4a;
+}
+
+/* Selection */
+::selection {
+    background: rgba(236, 72, 153, 0.3);
+    color: white;
+}
+
+/* Line clamp utility */
+.line-clamp-2 {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
